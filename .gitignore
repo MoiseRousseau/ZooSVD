@@ -1,0 +1,6 @@
+build/*
+know_problems/* 
+TODO.md
+*/__pycache__/*
+*.so
+*.json
