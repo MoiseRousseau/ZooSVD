@@ -23,14 +23,11 @@ extern "C" {
 
 /*
 LAPACKE SVD for float type
-Matrix must be stored in CSC fashion
 Return pointer to U, s and V. Size are already know by Python.
 */
 void wrap_sgesvd(
     float* mat_val, long int shape[2], float* U, float* s, float* VT
 ) {
-    //A in NumPy is stored in row, but LAPACK ask for column. 
-    //Thus we calculate here the SVD of A^T
     char jobu = 'S';
     char jobvt = 'S';
     lapack_int info,m,n,lda,ldu,ldvt;
@@ -62,14 +59,11 @@ void wrap_sgesvd(
 
 /*
 LAPACKE SVD for double type
-Matrix must be stored in CSC fashion
 Return pointer to U, s and V. Size are already know by Python.
 */
 void wrap_dgesvd(
     double* mat_val, long int shape[2], double* U, double* s, double* VT
 ) {
-    //A in NumPy is stored in row, but LAPACK ask for column. 
-    //Thus we calculate here the SVD of A^T
     char jobu = 'S';
     char jobvt = 'S';
     lapack_int info,m,n,lda,ldu,ldvt;

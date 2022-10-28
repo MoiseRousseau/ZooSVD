@@ -34,5 +34,5 @@ Time on a i7-1165G7 @ 2.8 Ghz (4 cores, 8 threads) for the SVD of a 2048x2048 ma
 | NumPy | 2.28 |
 | LAPACK `driver="gesvd"` | 20.52 |
 | LAPACK `driver="gesdd"` | 2.31 |
-| Eigen `driver="jacobi" | > 300 |
-| Eigen `driver="bidiagdc" | 6.71 |
+| Eigen `driver="jacobi"` | > 300 |
+| Eigen `driver="bidiagdc"` | 6.71 |
