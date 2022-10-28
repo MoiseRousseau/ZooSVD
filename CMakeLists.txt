@@ -12,36 +12,60 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -fopenmp")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+set(CMAKE_CXX_FLAGS_RELEASE "-O2")
+
+#------------------
+# Default dependencies
+#------------------
+#default source
+set(LIB_SOURCES src/Eigen_wrap.cpp src/LAPACK_wrap.cpp src/utils.cpp)
+
+#LAPACK
+find_package(LAPACK REQUIRED)
+set(LAPACKE_DIR "${CMAKE_SOURCE_DIR}/external")
+find_package(LAPACKE REQUIRED)
+message(STATUS "LAPACKE lib: ${LAPACKE_LIBRARIES}")
+
+#EIGEN
+find_package(Eigen3 REQUIRED)
+message(STATUS "Eigen3 dir: ${EIGEN3_INCLUDE_DIR}")
+
+#ScaLAPACK
+#find_package(ScaLAPACK REQUIRED)
+#message(STATUS "ScaLAPACK lib: ${SCALAPACK_LIBRARIES}")
+
+#------------------
+# Touchy dependencies to handle separately
+#------------------
+if(WITH_KSVD)
+    set(MPI_TO_FIND 1)
+    message(STATUS "Configure with Kaust SVD wrapper")
+    add_executable (KSVD_main 
+        src/KSVD_main.cpp
+    )
+    set(LIB_SOURCES ${LIB_SOURCES} src/KSVD_wrap.cpp)
+    install(TARGETS KSVD_main DESTINATION ${CMAKE_SOURCE_DIR}/PyZooSVD)
+endif()
+
+if(MPI_TO_FIND)
+    include(FindMPI)
+    set(CMAKE_CXX_COMPILER ${MPI_CXX_COMPILER})
+    message(STATUS "Switch to compiler: ${CMAKE_CXX_COMPILER}")
+endif()
 
 #------------------
 # Define target 
 #------------------
 include_directories(src)
-add_library (ZooSVD SHARED
-    src/Eigen_wrap.cpp
-    src/LAPACK_wrap.cpp
-    src/utils.cpp
+add_library (ZooSVD SHARED ${LIB_SOURCES})
+target_link_libraries(ZooSVD 
+    ${LAPACKE_LIBRARIES}
+    ${SCALAPACK_LIBRARIES}
 )
-
-#------------------
-# Dependencies
-#------------------
-#LAPACK
-find_package(LAPACK REQUIRED)
-set(LAPACKE_DIR "${CMAKE_SOURCE_DIR}/external")
-find_package(LAPACKE REQUIRED)
-#set(LAPACKE_LIBRARIES "/usr/lib/x86_64-linux-gnu/liblapacke.so")
-message(STATUS "LAPACKE lib: ${LAPACKE_LIBRARIES}")
-target_link_libraries(ZooSVD ${LAPACKE_LIBRARIES})
-
-#EIGEN
-find_package(
-    Eigen3 REQUIRED
-    HINTS ${EIGEN3_PATH}
+target_include_directories ( ZooSVD PRIVATE
+    ${EIGEN3_INCLUDE_DIR}
+    ${MPI_CXX_INCLUDE_DIRS}
 )
-message(STATUS "Eigen3 lib: ${EIGEN3_INCLUDE_DIR}")
-target_include_directories ( ZooSVD PRIVATE ${EIGEN3_INCLUDE_DIR} )
 
 #------------------
 # Parallelization using OpenMP
