@@ -47,6 +47,14 @@ if(WITH_KSVD)
     install(TARGETS KSVD_main DESTINATION ${CMAKE_SOURCE_DIR}/PyZooSVD)
 endif()
 
+
+if(WITH_CUDA)
+    message(STATUS "Configure with CUDA wrapper")
+    find_package(CUDAToolkit REQUIRED)
+    set(LIB_SOURCES ${LIB_SOURCES} src/CUDA_gesvdj_wrap.cpp)
+    set(CUDA_LIBRARIES CUDA::cudart CUDA::cusolver)
+endif()
+
 if(MPI_TO_FIND)
     include(FindMPI)
     set(CMAKE_CXX_COMPILER ${MPI_CXX_COMPILER})
@@ -61,6 +69,7 @@ add_library (ZooSVD SHARED ${LIB_SOURCES})
 target_link_libraries(ZooSVD 
     ${LAPACKE_LIBRARIES}
     ${SCALAPACK_LIBRARIES}
+    ${CUDA_LIBRARIES}
 )
 target_include_directories ( ZooSVD PRIVATE
     ${EIGEN3_INCLUDE_DIR}

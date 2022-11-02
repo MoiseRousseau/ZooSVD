@@ -10,11 +10,11 @@ if __name__ == "__main__":
     #load a numpy array name arr.npy of size 2048x2048
     f_mat = "arr.npy"
     A = np.load(f_mat)
-    size = 1024
+    size = 2048
     #A = A[:size,:size].astype('float64')
     print("Matrix shape:", A.shape, "/", "Data type:", A.dtype)
     
-    test_func = ["NumPy", "LAPACK_gesdd", "LAPACK_gesvd", "Eigen_BDC"]
+    test_func = ["NumPy", "CUDA_gesvdj"]
     
     if "Scipy" in test_func:
         t_start = time.time()
@@ -46,8 +46,13 @@ if __name__ == "__main__":
         U,s,V = PyZooSVD.Eigen_SVD(
             A.copy(), 
             driver="jacobi",
-            jacobi_preconditionner="ColPivHouseholderQR"
+            jacobi_preconditionner="HouseholderQR"
         )
         print(f"Eigen_Jacobi: {time.time() - t_start:.6f} second")
+    
+    if "CUDA_gesvdj" in test_func:
+        t_start = time.time()
+        U,s,V = PyZooSVD.CUDA_SVD(A.copy(), tol=2e-8, max_sweeps=100)
+        print(f"CUDA_gesvdj: {time.time() - t_start:.6f} second")
     
     
