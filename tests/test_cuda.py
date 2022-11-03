@@ -21,13 +21,40 @@ class Test_CUDA:
         #A_ = A + 1j * np.random.random(size)-0.5
         #mats.append(A_)
     
+    @pytest.mark.gpu
     @pytest.mark.parametrize("mat", [x for x in mats])
     def test_CUDA_jacobi(self, mat):
-        print("CUDA:", mat.shape, mat.dtype)
-        U,s,V = PyZooSVD.CUDA_SVD(mat)
+        print("CUDA-Jacobi:", mat.shape, mat.dtype)
+        U,s,V = PyZooSVD.CUDA_SVD(mat, driver="Jacobi")
         norm = np.linalg.norm( mat - U @ np.diag(s) @ V ) 
         print("Error norm:", norm)
-        print(U,s,V)
-        print(np.linalg.svd(mat, full_matrices=False))
-        assert norm < 1e-8
+        test = norm < 1e-8
+        if not test:
+            print(U,s,V)
+            print(np.linalg.svd(mat, full_matrices=False))
+        assert test
+    
+    @pytest.mark.gpu
+    @pytest.mark.parametrize("mat", [x for x in mats])
+    def test_CUDA_PD(self, mat):
+        print("CUDA-Polar-Decomposition:", mat.shape, mat.dtype)
+        U,s,V = PyZooSVD.CUDA_SVD(mat, driver="Polar-Decomposition")
+        print("Error norm:", norm)
+        test = norm < 1e-8
+        if not test:
+            print(U,s,V)
+            print(np.linalg.svd(mat, full_matrices=False))
+        assert test
+    
+    @pytest.mark.gpu
+    @pytest.mark.parametrize("mat", [x for x in mats])
+    def test_CUDA_QR(self, mat):
+        print("CUDA-QR:", mat.shape, mat.dtype)
+        U,s,V = PyZooSVD.CUDA_SVD(mat, driver="QR")
+        print("Error norm:", norm)
+        test = norm < 1e-8
+        if not test:
+            print(U,s,V)
+            print(np.linalg.svd(mat, full_matrices=False))
+        assert test
         
