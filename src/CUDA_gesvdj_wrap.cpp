@@ -1,4 +1,4 @@
-// https://stackoverflow.com/questions/57403017/cuda-cusolver-gesvdj-with-large-matrix
+// https://github.com/NVIDIA/CUDALibrarySamples/blob/master/cuSOLVER/gesvdj/cusolver_gesvdj_example.cu
 // https://docs.nvidia.com/cuda/cusolver/index.html
 
 #include <assert.h>
@@ -9,23 +9,34 @@
 #include <iostream>
 
 
+#define CUSOLVER_CHECK(err) \
+    do {  \
+        cusolverStatus_t err_ = (err); \
+        if (err_ != CUSOLVER_STATUS_SUCCESS) { \
+            printf("cusolver error %d at %s:%d\n", err_, __FILE__, __LINE__);  \
+            throw std::runtime_error("cusolver error"); \
+        }  \
+    } while (0)
+
+#define CUDA_CHECK(err) \
+    do { \
+        cudaError_t err_ = (err); \
+        if (err_ != cudaSuccess) { \
+            printf("CUDA error %d at %s:%d\n", err_, __FILE__, __LINE__); \
+            throw std::runtime_error("CUDA error"); \
+        } \
+    } while (0)
+
+
+void check_CUDA_device();
+
 extern "C" {
-    void wrap_CUDA_dgesvdj(double*, const long int[2], double*, double*, double*, const double&, const int&);
+    void wrap_CUDA_dgesvdj(double*, const long int[2], double*, double*, double*, const double, const int);
 }
 
-void wrap_CUDA_dgesvdj(
-    double* mat_val, const long int shape[2], double* U, double* s, double* VT, const double& tol, const int& max_sweeps
-) {
-    //LAPACK param
-    const cusolverEigMode_t jobz = CUSOLVER_EIG_MODE_VECTOR; //compute singular value and singular vectors
-    const int econ = 1 ; // economy size
-    const int m = shape[0];
-    const int n = shape[1];
-    const int lda = shape[1];
-    const int ldu = std::min(shape[0],shape[1]);
-    const int ldvt = shape[1];
-    
-    //-1/ Check CUDA card
+
+void check_CUDA_device()
+{
     int devCount = 0;
     cudaGetDeviceCount(&devCount);
     if (devCount == 0) 
@@ -33,98 +44,114 @@ void wrap_CUDA_dgesvdj(
         std::cout << "No CUDA-capable device found, exiting..." << std::endl;
         exit(1);
     }
+}
+
+
+void wrap_CUDA_dgesvdj(
+    double* mat_val, const long int shape[2], double* U, double* s, double* V, const double tol, const int max_sweeps
+) {
+    //We do a little hack here...
+    //Numpy arrays are stored row major, but CUDA expect them in column major
+    //Thus, when passing Numpy array to CUDA, we are passing the transpose of the matrix
+    //and we do the SVD of the matrix transpose and adjust the result
+
+    //LAPACK param
+    const cusolverEigMode_t jobz = CUSOLVER_EIG_MODE_VECTOR; //compute singular value and singular vectors
+    const int econ = 1 ; // economy size
+    const int n = shape[0];
+    const int m = shape[1];
+    const int lda = m;
+    const int ldu = m;
+    const int ldv = n;
+    const int min_nm = std::min(n,m);
+    
+    //-1. Check CUDA card
+    check_CUDA_device();
     
     //0. initiate variable and context
-    cusolverStatus_t status;
     cusolverDnHandle_t cusolverH;
-    status = cusolverDnCreate(&cusolverH);
-    assert(CUSOLVER_STATUS_SUCCESS == status);
+    CUSOLVER_CHECK(cusolverDnCreate(&cusolverH));
     
     //1. Get user parameters (tolerance and max sweeps)
     gesvdjInfo_t gesvdj_params;
-    status = cusolverDnCreateGesvdjInfo(&gesvdj_params);
-    assert(CUSOLVER_STATUS_SUCCESS == status);
-    status = cusolverDnXgesvdjSetTolerance(
+    CUSOLVER_CHECK(cusolverDnCreateGesvdjInfo(&gesvdj_params));
+    CUSOLVER_CHECK(cusolverDnXgesvdjSetTolerance(
         gesvdj_params,
-        tol);
-    assert(CUSOLVER_STATUS_SUCCESS == status);
-    status = cusolverDnXgesvdjSetMaxSweeps(
+        tol
+    ));
+    CUSOLVER_CHECK(cusolverDnXgesvdjSetMaxSweeps(
         gesvdj_params,
-        max_sweeps);
-    assert(CUSOLVER_STATUS_SUCCESS == status);
+        max_sweeps
+    ));
     
     //2. Import the matrices on the GPU memory
-    cudaError_t success;
     double* d_mat_val = nullptr;
-    success = cudaMalloc((void**) &d_mat_val, sizeof(double)*m*n); assert(cudaSuccess == success);
-    success = cudaMemcpy(d_mat_val, mat_val, sizeof(double)*m*n, cudaMemcpyHostToDevice); assert(cudaSuccess == success);
+    CUDA_CHECK(cudaMalloc((void**) &d_mat_val, sizeof(double)*m*n));
+    CUDA_CHECK(cudaMemcpy(d_mat_val, mat_val, sizeof(double)*m*n, cudaMemcpyHostToDevice));
     double* d_U = nullptr;
-    success = cudaMalloc((void**) &d_U, sizeof(double)*ldu*shape[1]); assert(cudaSuccess == success);
-    success = cudaMemcpy(d_U, U, sizeof(double)*m*n, cudaMemcpyHostToDevice); assert(cudaSuccess == success);
+    CUDA_CHECK(cudaMalloc((void**) &d_U, sizeof(double)*m*min_nm));
     double* d_S = nullptr;
-    success = cudaMalloc((void**) &d_S, sizeof(double)*ldu); assert(cudaSuccess == success);
-    success = cudaMemcpy(d_S, s, sizeof(double)*ldu, cudaMemcpyHostToDevice); assert(cudaSuccess == success);
-    double* d_VT = nullptr;
-    success = cudaMalloc((void**) &d_VT, sizeof(double)*ldvt*shape[0]); assert(cudaSuccess == success);
-    success = cudaMemcpy(d_VT, VT, sizeof(double)*ldvt*shape[0], cudaMemcpyHostToDevice); assert(cudaSuccess == success);
+    CUDA_CHECK(cudaMalloc((void**) &d_S, sizeof(double)*min_nm));
+    double* d_V = nullptr;
+    CUDA_CHECK(cudaMalloc((void**) &d_V, sizeof(double)*n*min_nm));
+    int* d_info = nullptr;
+    CUDA_CHECK(cudaMalloc((void**) &d_info, sizeof(int)));
     
     //3. Prepare workspace
     int lwork;
-    status = cusolverDnDgesvdj_bufferSize(
+    CUSOLVER_CHECK(cusolverDnDgesvdj_bufferSize(
         cusolverH, 
         jobz, econ,
         m, n, //matrix size
         d_mat_val, lda, //the device matrix and leading dimension
         d_S,  //the singular value
         d_U, ldu, //the U matrix
-        d_VT, ldvt,  //the VT matrix
+        d_V, ldv,  //the V matrix
         &lwork,
         gesvdj_params
-    );
-    assert(CUSOLVER_STATUS_SUCCESS == status);
+    ));
     double* d_work = nullptr;
-    success = cudaMalloc((void**)&d_work , sizeof(double)*lwork); assert(cudaSuccess == success);
+    CUDA_CHECK(cudaMalloc((void**)&d_work , sizeof(double)*lwork));
     
     //4. Do the SVD
-    int info = 0;
-    status = cusolverDnDgesvdj(
+    cusolverDnDgesvdj(
         cusolverH, 
         jobz, econ,
         m, n, //matrix size
         d_mat_val, lda, //the device matrix and leading dimension
         d_S,  //the singular value
         d_U, ldu, //the U matrix
-        d_VT, ldvt,  //the VT matrix
+        d_V, ldv,  //the V matrix
         d_work, lwork,
-        &info,
+        d_info,
         gesvdj_params
-    );
-    success = cudaDeviceSynchronize();
-    assert(cudaSuccess == success);
-    assert(CUSOLVER_STATUS_SUCCESS == status);
+    ); //we do check the error in info latter
+
+    //5. Copy back the result on host memory
+    //Here is the hack (d_V in U and d_U in V)
+    CUDA_CHECK(cudaMemcpy(U, d_V, sizeof(double)*n*min_nm, cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(s, d_S, sizeof(double)*min_nm, cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(V, d_U, sizeof(double)*min_nm*m, cudaMemcpyDeviceToHost));
+    int info;
+    CUDA_CHECK(cudaMemcpy(&info, d_info, sizeof(int), cudaMemcpyDeviceToHost));
     
+    //Finalize
     if ( 0 > info )
     {
         std::cout << "There was a problem with the " << -info << "-th parameter in cusolverDnDgesvdj. Please create an issue on GitHub!" << std::endl;
         exit(1);
     }
-    else{
+    else if (0 < info) {
         std::cout << "WARNING: gesvdj does not converge (error code " << info << ")" << std::endl;
     }
-    
-    //5. Copy back the result on host memory
-    success = cudaMemcpy(U, d_U, sizeof(double)*ldu*shape[1], cudaMemcpyDeviceToHost); assert(cudaSuccess == success);
-    success = cudaMemcpy(s, d_S, sizeof(double)*ldu, cudaMemcpyDeviceToHost); assert(cudaSuccess == success);
-    success = cudaMemcpy(VT, d_VT, sizeof(double)*ldvt*shape[0], cudaMemcpyDeviceToHost); assert(cudaSuccess == success);
-    success = cudaDeviceSynchronize(); assert(cudaSuccess == success);
-    
-    //Finalize
     cusolverDnDestroyGesvdjInfo(gesvdj_params); 
     cusolverDnDestroy(cusolverH);
     cudaFree(d_mat_val);
     cudaFree(d_S);
     cudaFree(d_U);
-    cudaFree(d_VT);
+    cudaFree(d_V);
+    cudaFree(d_info);
     cudaFree(d_work);
+    cudaDeviceReset();
     return;
 }

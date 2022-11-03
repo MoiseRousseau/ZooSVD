@@ -6,11 +6,11 @@ import numpy as np
 
 class Test_CUDA:
     """
-    This test the result of the SVD using the different wrappers
+    This test the result of the SVD using CUDA function
     """
     
     np.random.seed(2)
-    #create some real test matrices with different size with their SVD
+    #create some real test matrices with different size
     sizes = [(3,3), (5,3), (3,8)]
     mats = []
     for size in sizes:
@@ -24,9 +24,10 @@ class Test_CUDA:
     @pytest.mark.parametrize("mat", [x for x in mats])
     def test_CUDA_jacobi(self, mat):
         print("CUDA:", mat.shape, mat.dtype)
-        #TODO! mat is modified!!!!
         U,s,V = PyZooSVD.CUDA_SVD(mat)
         norm = np.linalg.norm( mat - U @ np.diag(s) @ V ) 
         print("Error norm:", norm)
+        print(U,s,V)
+        print(np.linalg.svd(mat, full_matrices=False))
         assert norm < 1e-8
         
