@@ -39,6 +39,7 @@ class Test_CUDA:
     def test_CUDA_PD(self, mat):
         print("CUDA-Polar-Decomposition:", mat.shape, mat.dtype)
         U,s,V = PyZooSVD.CUDA_SVD(mat, driver="Polar-Decomposition")
+        norm = np.linalg.norm( mat - U @ np.diag(s) @ V ) 
         print("Error norm:", norm)
         test = norm < 1e-8
         if not test:
@@ -51,6 +52,7 @@ class Test_CUDA:
     def test_CUDA_QR(self, mat):
         print("CUDA-QR:", mat.shape, mat.dtype)
         U,s,V = PyZooSVD.CUDA_SVD(mat, driver="QR")
+        norm = np.linalg.norm( mat - U @ np.diag(s) @ V ) 
         print("Error norm:", norm)
         test = norm < 1e-8
         if not test:

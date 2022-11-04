@@ -42,7 +42,7 @@ def CUDA_SVD(A, driver="Jacobi", tol=0.2e-7, max_sweeps=100, PD_pertubation=2e-8
         elif A.dtype == np.dtype('complex128'): 
             s = np.zeros(min(A.shape),dtype="float64")
             datatype = 5
-        lib.wrap_CUDA_dgesvdp(
+        lib.wrap_CUDA_Xgesvdp(
             A.ctypes.data_as(ctypes.c_void_p),
             A.ctypes.shape,
             UT.ctypes.data_as(ctypes.c_void_p),
@@ -70,19 +70,18 @@ def CUDA_SVD(A, driver="Jacobi", tol=0.2e-7, max_sweeps=100, PD_pertubation=2e-8
         elif A_.dtype == np.dtype('complex128'): 
             s = np.zeros(min(A_.shape),dtype="float64")
             datatype = 5
-        lib.wrap_CUDA_dgesvd(
+        lib.wrap_CUDA_Xgesvd(
             A_.ctypes.data_as(ctypes.c_void_p),
             A_.ctypes.shape,
-            UT.ctypes.data_as(ctypes.c_void_p),
+            U.ctypes.data_as(ctypes.c_void_p),
             s.ctypes.data_as(ctypes.c_void_p),
             V.ctypes.data_as(ctypes.c_void_p),
             ctypes.c_int(datatype),
-            ctypes.c_double(PD_pertubation),
         )
         if A.shape[0] > A.shape[1]: 
-            return V.transpose(),s,UT.transpose()
+            return V.transpose(),s,U.transpose()
         else:
-            return UT,s,V
+            return U,s,V
 
     else:
         print(f"Unknown driver \"{driver}\". Available drivers are \"Jacobi\", \"QR\" and \"Polar-Decomposition\"")

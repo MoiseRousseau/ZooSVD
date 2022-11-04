@@ -36,9 +36,9 @@ int check_CUDA_device();
 int calculate_type_size(const int&);
 
 extern "C" {
-    void wrap_CUDA_dgesvdj(double*, const long int[2], double*, double*, double*, const double, const int, const int);
+    void wrap_CUDA_dgesvdj(double*, const long int[2], double*, double*, double*, const double, const int);
     void wrap_CUDA_Xgesvd(void*, const long int[2], void*, void*, void*, const int);
-    void wrap_CUDA_Xgesvdp(void*, const long int, void*, void*, void* V, const int, double);
+    void wrap_CUDA_Xgesvdp(void*, const long int[2], void*, void*, void*, const int, double);
 }
 
 
