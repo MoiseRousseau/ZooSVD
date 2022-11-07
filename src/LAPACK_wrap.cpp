@@ -160,7 +160,7 @@ void wrap_sgesdd(
     n = shape[1];
     lda = shape[1];
     ldu = std::min(shape[0],shape[1]);
-    ldvt = shape[0];
+    ldvt = shape[1];
     
     info = LAPACKE_sgesdd(
         LAPACK_ROW_MAJOR,
@@ -185,7 +185,7 @@ void wrap_dgesdd(
     n = shape[1];
     lda = shape[1];
     ldu = std::min(shape[0],shape[1]);
-    ldvt = shape[0];
+    ldvt = shape[1];
     
     info = LAPACKE_dgesdd(
         LAPACK_ROW_MAJOR,

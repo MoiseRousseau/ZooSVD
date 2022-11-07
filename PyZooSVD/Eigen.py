@@ -14,7 +14,7 @@ def Eigen_SVD(A, driver="bidiagdc", jacobi_preconditionner="ColPivHouseholderQR"
     * HouseholderQR: fatest, less safe.
     """
     U = np.zeros((A.shape[0],min(A.shape)),A.dtype)
-    V = np.zeros((min(A.shape),A.shape[1]),A.dtype) #eigen return V and not V^T
+    V = np.zeros((A.shape[1],min(A.shape)),A.dtype) #eigen return V and not V^T
     s = np.zeros(min(A.shape),A.dtype)
     if driver == "jacobi":
         if jacobi_preconditionner == "None": 

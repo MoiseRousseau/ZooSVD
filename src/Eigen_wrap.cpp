@@ -63,7 +63,7 @@ The main routine for Eigen_Jacobi templated with the type and preconditionner
 */
 template<typename T, int QRPreconditionner>
 void main_EigenJacobi(
-    T* mat_val, const long int shape[2], T* U, T* s, T* VT
+    T* mat_val, const long int shape[2], T* U, T* s, T* V
 ) {
     Eigen::Map< Eigen::Matrix<T,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor> > A(mat_val, shape[0], shape[1]);
     //This work for Eigen 3.4.0 but there is a change for Eigen 3.4.90 as in the docs
@@ -81,9 +81,9 @@ void main_EigenJacobi(
             U[m*i+j] = svd.matrixU()(i,j);
         }
     }
-    for (long int i=0; i<m; i++) {
-        for (long int j=0; j<shape[1]; j++) {
-            VT[shape[1]*i+j] = svd.matrixV()(i,j);
+    for (long int i=0; i<shape[1]; i++) {
+        for (long int j=0; j<m; j++) {
+            V[m*i+j] = svd.matrixV()(i,j);
         }
     }
     return;
@@ -95,7 +95,7 @@ void main_EigenJacobi(
 Eigen Bidiag Divide and Conquer for double type
 */
 void wrap_dEigenBDC(
-    double* mat_val, const long int shape[2], double* U, double* s, double* VT
+    double* mat_val, const long int shape[2], double* U, double* s, double* V
 ) {
     Eigen::Map<Matd> A(mat_val, shape[0], shape[1]);
     //This work for Eigen 3.4.0 but there is a change for Eigen 3.4.90 as in the docs
@@ -113,9 +113,9 @@ void wrap_dEigenBDC(
             U[m*i+j] = svd.matrixU()(i,j);
         }
     }
-    for (long int i=0; i<m; i++) {
-        for (long int j=0; j<shape[1]; j++) {
-            VT[shape[1]*i+j] = svd.matrixV()(i,j);
+    for (long int i=0; i<shape[1]; i++) {
+        for (long int j=0; j<m; j++) {
+            V[m*i+j] = svd.matrixV()(i,j);
         }
     }
     return;
@@ -125,7 +125,7 @@ void wrap_dEigenBDC(
 Eigen Bidiag Divide and Conquer for float type
 */
 void wrap_sEigenBDC(
-    float* mat_val, const long int shape[2], float* U, float* s, float* VT
+    float* mat_val, const long int shape[2], float* U, float* s, float* V
 ) {
     Eigen::Map<Matf> A(mat_val, shape[0], shape[1]);
     //This work for Eigen 3.4.0 but there is a change for Eigen 3.4.90 as in the docs
@@ -143,9 +143,9 @@ void wrap_sEigenBDC(
             U[m*i+j] = svd.matrixU()(i,j);
         }
     }
-    for (long int i=0; i<m; i++) {
-        for (long int j=0; j<shape[1]; j++) {
-            VT[shape[1]*i+j] = svd.matrixV()(i,j);
+    for (long int i=0; i<shape[1]; i++) {
+        for (long int j=0; j<m; j++) {
+            V[m*i+j] = svd.matrixV()(i,j);
         }
     }
     return;

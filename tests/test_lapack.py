@@ -22,11 +22,28 @@ class Test_LAPACK:
         mats.append(A_)
     
     @pytest.mark.parametrize("mat", [x for x in mats])
-    def test_LAPACK(self, mat):
+    def test_LAPACK_gesdd(self, mat):
         print("LAPACK:", mat.shape, mat.dtype)
         #TODO! mat is modified!!!!
         U,s,V = PyZooSVD.Lapack_SVD(mat.copy(), driver="gesdd")
         norm = np.linalg.norm( mat - U @ np.diag(s) @ V ) 
         print("Error norm:", norm)
-        assert norm < 1e-8
+        test = norm < 1e-8
+        if not test:
+            print(U,s,V)
+            print(np.linalg.svd(mat, full_matrices=False))
+        assert test
+    
+    @pytest.mark.parametrize("mat", [x for x in mats])
+    def test_LAPACK_gesvd(self, mat):
+        print("LAPACK:", mat.shape, mat.dtype)
+        #TODO! mat is modified!!!!
+        U,s,V = PyZooSVD.Lapack_SVD(mat.copy(), driver="gesvd")
+        norm = np.linalg.norm( mat - U @ np.diag(s) @ V ) 
+        print("Error norm:", norm)
+        test = norm < 1e-8
+        if not test:
+            print(U,s,V)
+            print(np.linalg.svd(mat, full_matrices=False))
+        assert test
         
