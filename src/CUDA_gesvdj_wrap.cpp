@@ -162,12 +162,12 @@ void wrap_CUDA_dgesvdj(
 
 
 int calculate_type_size(const int& CUDADataType) {
-    if (CUDADataType == CUDA_R_16F) return 16;
-    if (CUDADataType == CUDA_R_32F) return 32;
-    if (CUDADataType == CUDA_R_64F) return 64;
-    if (CUDADataType == CUDA_C_16F) return 32;
-    if (CUDADataType == CUDA_C_32F) return 64;
-    if (CUDADataType == CUDA_C_64F) return 128;
+    if (CUDADataType == CUDA_R_16F) return 2;
+    if (CUDADataType == CUDA_R_32F) return 4;
+    if (CUDADataType == CUDA_R_64F) return 8;
+    if (CUDADataType == CUDA_C_16F) return 4;
+    if (CUDADataType == CUDA_C_32F) return 8;
+    if (CUDADataType == CUDA_C_64F) return 16;
     throw std::runtime_error("Unknown CUDA data type. Can't continue");
     return 0;
 }
