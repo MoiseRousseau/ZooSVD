@@ -33,10 +33,10 @@
 
 
 int check_CUDA_device();
-int calculate_type_size(const int&);
+void calculate_type_size(const int&, int&, int&);
 
 extern "C" {
-    void wrap_CUDA_dgesvdj(double*, const long int[2], double*, double*, double*, const double, const int);
+    void wrap_CUDA_Xgesvdj(void*, const long int[2], void*, void*, void*, const double, const int, const int);
     void wrap_CUDA_Xgesvd(void*, const long int[2], void*, void*, void*, const int);
     void wrap_CUDA_Xgesvdp(void*, const long int[2], void*, void*, void*, const int, double);
 }
@@ -55,8 +55,8 @@ int check_CUDA_device()
 }
 
 
-void wrap_CUDA_dgesvdj(
-    double* mat_val, const long int shape[2], double* U, double* s, double* V, const double tol, const int max_sweeps
+void wrap_CUDA_Xgesvdj(
+    void* mat_val, const long int shape[2], void* U, void* s, void* V, const double tol, const int max_sweeps, const int data_type
 ) {
     // https://github.com/NVIDIA/CUDALibrarySamples/blob/master/cuSOLVER/gesvdj/cusolver_gesvdj_example.cu
     
@@ -73,6 +73,9 @@ void wrap_CUDA_dgesvdj(
     const int ldv = n;
     const int min_nm = std::min(n,m);
     
+    int DataType_size, DataType_size_S;
+    calculate_type_size(data_type, DataType_size, DataType_size_S);
+
     //0. initiate variable and context
     cusolverDnHandle_t cusolverH;
     CUSOLVER_CHECK(cusolverDnCreate(&cusolverH));
@@ -90,52 +93,135 @@ void wrap_CUDA_dgesvdj(
     ));
     
     //2. Import the matrices on the GPU memory
-    double* d_mat_val = nullptr;
-    CUDA_CHECK(cudaMalloc((void**) &d_mat_val, sizeof(double)*m*n));
-    CUDA_CHECK(cudaMemcpy(d_mat_val, mat_val, sizeof(double)*m*n, cudaMemcpyHostToDevice));
+    void* d_mat_val = nullptr;
+    CUDA_CHECK(cudaMalloc((void**) &d_mat_val, DataType_size*m*n));
+    CUDA_CHECK(cudaMemcpy(d_mat_val, mat_val, DataType_size*m*n, cudaMemcpyHostToDevice));
     double* d_U = nullptr;
-    CUDA_CHECK(cudaMalloc((void**) &d_U, sizeof(double)*m*min_nm));
+    CUDA_CHECK(cudaMalloc((void**) &d_U, DataType_size*m*min_nm));
     double* d_S = nullptr;
-    CUDA_CHECK(cudaMalloc((void**) &d_S, sizeof(double)*min_nm));
+    CUDA_CHECK(cudaMalloc((void**) &d_S, DataType_size_S*min_nm));
     double* d_V = nullptr;
-    CUDA_CHECK(cudaMalloc((void**) &d_V, sizeof(double)*n*min_nm));
+    CUDA_CHECK(cudaMalloc((void**) &d_V, DataType_size*n*min_nm));
     int* d_info = nullptr;
     CUDA_CHECK(cudaMalloc((void**) &d_info, sizeof(int)));
     
     //3. Prepare workspace and 4. Do the SVD
     int lwork;
-    CUSOLVER_CHECK(cusolverDnDgesvdj_bufferSize(
-        cusolverH, 
-        jobz, econ,
-        m, n, //matrix size
-        d_mat_val, lda, //the device matrix and leading dimension
-        d_S,  //the singular value
-        d_U, ldu, //the U matrix
-        d_V, ldv,  //the V matrix
-        &lwork,
-        gesvdj_params
-    ));
-    double* d_work = nullptr;
-    CUDA_CHECK(cudaMalloc((void**)&d_work , sizeof(double)*lwork));
-
-    cusolverDnDgesvdj(
-        cusolverH, 
-        jobz, econ,
-        m, n, //matrix size
-        d_mat_val, lda, //the device matrix and leading dimension
-        d_S,  //the singular value
-        d_U, ldu, //the U matrix
-        d_V, ldv,  //the V matrix
-        d_work, lwork,
-        d_info,
-        gesvdj_params
-    ); //we do check the error in info latter
+    void* d_work = nullptr;
+    if (data_type == 0) {
+        CUSOLVER_CHECK(cusolverDnSgesvdj_bufferSize(
+            cusolverH,
+            jobz, econ,
+            m, n, //matrix size
+            (float*) d_mat_val, lda, //the device matrix and leading dimension
+            (float*) d_S,  //the singular value
+            (float*) d_U, ldu, //the U matrix
+            (float*) d_V, ldv,  //the V matrix
+            &lwork,
+            gesvdj_params
+        ));
+        //reserve space
+        CUDA_CHECK(cudaMalloc((void**)&d_work , DataType_size*lwork));
+        cusolverDnSgesvdj(
+            cusolverH,
+            jobz, econ,
+            m, n, //matrix size
+            (float*) d_mat_val, lda, //the device matrix and leading dimension
+            (float*) d_S,  //the singular value
+            (float*) d_U, ldu, //the U matrix
+            (float*) d_V, ldv,  //the V matrix
+            (float*) d_work, lwork,
+            d_info,
+            gesvdj_params
+         ); //we do check the error in info latter
+    }
+    else if (data_type == 1) {
+        CUSOLVER_CHECK(cusolverDnDgesvdj_bufferSize(
+            cusolverH, 
+            jobz, econ,
+            m, n, //matrix size
+            (double*) d_mat_val, lda, //the device matrix and leading dimension
+            (double*) d_S,  //the singular value
+            (double*) d_U, ldu, //the U matrix
+            (double*) d_V, ldv,  //the V matrix
+            &lwork,
+            gesvdj_params
+        ));
+	//reserve space
+        CUDA_CHECK(cudaMalloc((void**)&d_work , DataType_size*lwork));
+        cusolverDnDgesvdj(
+            cusolverH, 
+            jobz, econ,
+            m, n, //matrix size
+            (double*) d_mat_val, lda, //the device matrix and leading dimension
+            (double*) d_S,  //the singular value
+            (double*) d_U, ldu, //the U matrix
+            (double*) d_V, ldv,  //the V matrix
+            (double*) d_work, lwork,
+            d_info,
+            gesvdj_params
+         ); //we do check the error in info latter
+    }
+    else if (data_type == 4) {
+        CUSOLVER_CHECK(cusolverDnCgesvdj_bufferSize(
+            cusolverH,
+            jobz, econ,
+            m, n, //matrix size
+            (cuComplex*) d_mat_val, lda, //the device matrix and leading dimension
+            (float*) d_S,  //the singular value
+            (cuComplex*) d_U, ldu, //the U matrix
+            (cuComplex*) d_V, ldv,  //the V matrix
+            &lwork,
+            gesvdj_params
+        ));
+        //reserve space
+        CUDA_CHECK(cudaMalloc((void**)&d_work , DataType_size*lwork));
+        cusolverDnCgesvdj(
+            cusolverH,
+            jobz, econ,
+            m, n, //matrix size
+            (cuComplex*) d_mat_val, lda, //the device matrix and leading dimension
+            (float*) d_S,  //the singular value
+            (cuComplex*) d_U, ldu, //the U matrix
+            (cuComplex*) d_V, ldv,  //the V matrix
+            (cuComplex*) d_work, lwork,
+            d_info,
+            gesvdj_params
+         ); //we do check the error in info latter
+    }
+    else if (data_type == 5) {
+        CUSOLVER_CHECK(cusolverDnZgesvdj_bufferSize(
+            cusolverH,
+            jobz, econ,
+            m, n, //matrix size
+            (cuDoubleComplex*) d_mat_val, lda, //the device matrix and leading dimension
+            (double*) d_S,  //the singular value
+            (cuDoubleComplex*) d_U, ldu, //the U matrix
+            (cuDoubleComplex*) d_V, ldv,  //the V matrix
+            &lwork,
+            gesvdj_params
+        ));
+        //reserve space
+        CUDA_CHECK(cudaMalloc((void**)&d_work , DataType_size*lwork));
+        cusolverDnZgesvdj(
+            cusolverH,
+            jobz, econ,
+            m, n, //matrix size
+            (cuDoubleComplex*) d_mat_val, lda, //the device matrix and leading dimension
+            (double*) d_S,  //the singular value
+            (cuDoubleComplex*) d_U, ldu, //the U matrix
+            (cuDoubleComplex*) d_V, ldv,  //the V matrix
+            (cuDoubleComplex*) d_work, lwork,
+            d_info,
+            gesvdj_params
+         ); //we do check the error in info latter
+    }
 
     //5. Copy back the result on host memory
     //Here is the hack (d_V in U and d_U in V)
-    CUDA_CHECK(cudaMemcpy(U, d_V, sizeof(double)*n*min_nm, cudaMemcpyDeviceToHost));
-    CUDA_CHECK(cudaMemcpy(s, d_S, sizeof(double)*min_nm, cudaMemcpyDeviceToHost));
-    CUDA_CHECK(cudaMemcpy(V, d_U, sizeof(double)*min_nm*m, cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(U, d_V, DataType_size*n*min_nm, cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(s, d_S, DataType_size_S*min_nm, cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(V, d_U, DataType_size*min_nm*m, cudaMemcpyDeviceToHost));
     int info;
     CUDA_CHECK(cudaMemcpy(&info, d_info, sizeof(int), cudaMemcpyDeviceToHost));
     
@@ -161,15 +247,25 @@ void wrap_CUDA_dgesvdj(
 
 
 
-int calculate_type_size(const int& CUDADataType) {
-    if (CUDADataType == CUDA_R_16F) return 2;
-    if (CUDADataType == CUDA_R_32F) return 4;
-    if (CUDADataType == CUDA_R_64F) return 8;
-    if (CUDADataType == CUDA_C_16F) return 4;
-    if (CUDADataType == CUDA_C_32F) return 8;
-    if (CUDADataType == CUDA_C_64F) return 16;
-    throw std::runtime_error("Unknown CUDA data type. Can't continue");
-    return 0;
+void calculate_type_size(
+    const int& CUDADataType, 
+    int &DataType_size,
+    int &DataType_size_S
+) {
+    if (CUDADataType == CUDA_R_16F) 
+        {DataType_size = 2; DataType_size_S = 2;}
+    else if  (CUDADataType == CUDA_R_32F) 
+        {DataType_size = 4; DataType_size_S = 4;}
+    else if (CUDADataType == CUDA_R_64F) 
+        {DataType_size = 8; DataType_size_S = 8;}
+    else if (CUDADataType == CUDA_C_16F) 
+        {DataType_size = 4; DataType_size_S = 2;}
+    else if (CUDADataType == CUDA_C_32F) 
+        {DataType_size = 8; DataType_size_S = 4;}
+    else if (CUDADataType == CUDA_C_64F) 
+        {DataType_size = 16; DataType_size_S = 8;}
+    else 
+        {throw std::runtime_error("Unknown CUDA data type. Can't continue");}
 }
 
 void wrap_CUDA_Xgesvd(
@@ -202,14 +298,15 @@ void wrap_CUDA_Xgesvd(
     //cusolverDnSetAdvOptions(params, 0, NULL);
     
     //2. Import the matrices on the GPU memory
-    int DataType_size = calculate_type_size(_CUDADataType);
+    int DataType_size, DataType_size_S;
+    calculate_type_size(_CUDADataType, DataType_size, DataType_size_S);
     void* d_mat_val = nullptr;
     CUDA_CHECK(cudaMalloc((void**) &d_mat_val, DataType_size*m*n));
     CUDA_CHECK(cudaMemcpy(d_mat_val, mat_val, DataType_size*m*n, cudaMemcpyHostToDevice));
     void* d_U = nullptr;
     CUDA_CHECK(cudaMalloc((void**) &d_U, DataType_size*m*min_nm));
     void* d_S = nullptr;
-    CUDA_CHECK(cudaMalloc((void**) &d_S, DataType_size*min_nm));
+    CUDA_CHECK(cudaMalloc((void**) &d_S, DataType_size_S*min_nm));
     void* d_VT = nullptr;
     CUDA_CHECK(cudaMalloc((void**) &d_VT, DataType_size*n*min_nm));
     int* d_info = nullptr;
@@ -218,13 +315,17 @@ void wrap_CUDA_Xgesvd(
     //3. Prepare workspace
     size_t workspaceInBytesOnDevice, workspaceInBytesOnHost;
     cudaDataType_t CUDADataType = (cudaDataType_t) _CUDADataType;
+    //S type (always real)
+    cudaDataType_t CUDADataType_S;
+    if (_CUDADataType < 3) CUDADataType_S = CUDADataType;
+    else CUDADataType_S = (cudaDataType_t) (_CUDADataType - 4);
     CUSOLVER_CHECK(cusolverDnXgesvd_bufferSize(
         cusolverH,
         params,
         jobuv, jobuv,
         m, n,
         CUDADataType, d_mat_val, lda,
-        CUDADataType, d_S,
+        CUDADataType_S, d_S,
         CUDADataType, d_U, ldu,
         CUDADataType, d_VT, ldvt,
         CUDADataType, // computeType
@@ -244,7 +345,7 @@ void wrap_CUDA_Xgesvd(
         jobuv, jobuv,
         m, n,
         CUDADataType, d_mat_val, lda,
-        CUDADataType, d_S,
+        CUDADataType_S, d_S,
         CUDADataType, d_U, ldu,
         CUDADataType, d_VT, ldvt,
         CUDADataType, // computeType
@@ -255,9 +356,9 @@ void wrap_CUDA_Xgesvd(
     
     //5. Copy back the result on host memory
     //Here is the hack (d_VT in U and d_U in V)
-    CUDA_CHECK(cudaMemcpy(U, d_VT, sizeof(double)*n*min_nm, cudaMemcpyDeviceToHost));
-    CUDA_CHECK(cudaMemcpy(s, d_S, sizeof(double)*min_nm, cudaMemcpyDeviceToHost));
-    CUDA_CHECK(cudaMemcpy(V, d_U, sizeof(double)*min_nm*m, cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(U, d_VT, DataType_size*n*min_nm, cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(s, d_S, DataType_size_S*min_nm, cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(V, d_U, DataType_size*min_nm*m, cudaMemcpyDeviceToHost));
     int info;
     CUDA_CHECK(cudaMemcpy(&info, d_info, sizeof(int), cudaMemcpyDeviceToHost));
     
@@ -313,14 +414,15 @@ void wrap_CUDA_Xgesvdp(
     //cusolverDnSetAdvOptions(params, NULL, NULL);
     
     //2. Import the matrices on the GPU memory
-    int DataType_size = calculate_type_size(_CUDADataType);
+    int DataType_size, DataType_size_S;
+    calculate_type_size(_CUDADataType, DataType_size, DataType_size_S);
     void* d_mat_val = nullptr;
     CUDA_CHECK(cudaMalloc((void**) &d_mat_val, DataType_size*m*n));
     CUDA_CHECK(cudaMemcpy(d_mat_val, mat_val, DataType_size*m*n, cudaMemcpyHostToDevice));
     void* d_U = nullptr;
     CUDA_CHECK(cudaMalloc((void**) &d_U, DataType_size*m*min_nm));
     void* d_S = nullptr;
-    CUDA_CHECK(cudaMalloc((void**) &d_S, DataType_size*min_nm));
+    CUDA_CHECK(cudaMalloc((void**) &d_S, DataType_size_S*min_nm));
     void* d_VT = nullptr;
     CUDA_CHECK(cudaMalloc((void**) &d_VT, DataType_size*n*min_nm));
     int* d_info = nullptr;
@@ -328,14 +430,18 @@ void wrap_CUDA_Xgesvdp(
     
     //3. Prepare workspace
     size_t workspaceInBytesOnDevice, workspaceInBytesOnHost;
-    cudaDataType_t CUDADataType = (cudaDataType_t) _CUDADataType;
+    const cudaDataType_t CUDADataType = (cudaDataType_t) _CUDADataType;
+    //S type (always real)
+    cudaDataType_t CUDADataType_S;
+    if (_CUDADataType < 3) CUDADataType_S = CUDADataType;
+    else CUDADataType_S = (cudaDataType_t) (_CUDADataType - 4);
     CUSOLVER_CHECK(cusolverDnXgesvdp_bufferSize(
         cusolverH,
         params,
         jobz, econ,
         m, n,
         CUDADataType, d_mat_val, lda,
-        CUDADataType, d_S,
+        CUDADataType_S, d_S,
         CUDADataType, d_U, ldu,
         CUDADataType, d_VT, ldv,
         CUDADataType, // computeType
@@ -355,7 +461,7 @@ void wrap_CUDA_Xgesvdp(
         jobz, econ,
         m, n,
         CUDADataType, d_mat_val, lda,
-        CUDADataType, d_S,
+        CUDADataType_S, d_S,
         CUDADataType, d_U, ldu,
         CUDADataType, d_VT, ldv,
         CUDADataType, // computeType
@@ -367,9 +473,9 @@ void wrap_CUDA_Xgesvdp(
     
     //5. Copy back the result on host memory
     //Here is the hack (d_VT in U and d_U in V)
-    CUDA_CHECK(cudaMemcpy(U, d_VT, sizeof(double)*n*min_nm, cudaMemcpyDeviceToHost));
-    CUDA_CHECK(cudaMemcpy(s, d_S, sizeof(double)*min_nm, cudaMemcpyDeviceToHost));
-    CUDA_CHECK(cudaMemcpy(V, d_U, sizeof(double)*min_nm*m, cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(U, d_VT, DataType_size*n*min_nm, cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(s, d_S, DataType_size_S*min_nm, cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(V, d_U, DataType_size*min_nm*m, cudaMemcpyDeviceToHost));
     int info;
     CUDA_CHECK(cudaMemcpy(&info, d_info, sizeof(int), cudaMemcpyDeviceToHost));
     

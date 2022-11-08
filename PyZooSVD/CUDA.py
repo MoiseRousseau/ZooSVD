@@ -9,46 +9,44 @@ def CUDA_SVD(A, driver="Jacobi", tol=0.2e-7, max_sweeps=100, PD_pertubation=2e-8
     
     When driver="Jacobi", the tol argument can be specified to return a truncated SVD up to the given tolerance.
     """
-    driver_int = {"Jacobi":0, "QR":1, "Polar-Decomposition":2}
+    if A.dtype == np.dtype('float32'):
+        s = np.zeros(min(A.shape),A.dtype)
+        data_type = 0
+    elif A.dtype == np.dtype('float64'):
+        s = np.zeros(min(A.shape),A.dtype)
+        data_type = 1
+    elif A.dtype == np.dtype('complex64'):
+        s = np.zeros(min(A.shape),dtype="float32")
+        data_type = 4
+    elif A.dtype == np.dtype('complex128'):
+        s = np.zeros(min(A.shape),dtype="float64")
+        data_type = 5
 
     if driver == "Jacobi":
         UT = np.zeros((min(A.shape),A.shape[0]),A.dtype)
         V = np.zeros((min(A.shape),A.shape[1]),A.dtype)
-        if A.dtype == np.dtype('float64'): 
-            s = np.zeros(min(A.shape),A.dtype)
-            lib.wrap_CUDA_dgesvdj(
-                A.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
-                A.ctypes.shape,
-                UT.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
-                s.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
-                V.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
-                ctypes.c_double(tol),
-                ctypes.c_int(max_sweeps),
-            )
+        lib.wrap_CUDA_Xgesvdj(
+            A.ctypes.data_as(ctypes.c_void_p),
+            A.ctypes.shape,
+            UT.ctypes.data_as(ctypes.c_void_p),
+            s.ctypes.data_as(ctypes.c_void_p),
+            V.ctypes.data_as(ctypes.c_void_p),
+            ctypes.c_double(tol),
+            ctypes.c_int(max_sweeps),
+            ctypes.c_int(data_type),
+        )
         return UT.transpose(),s,V
 
     elif driver == "Polar-Decomposition":
         UT = np.zeros((min(A.shape),A.shape[0]),A.dtype)
         V = np.zeros((min(A.shape),A.shape[1]),A.dtype)
-        if A.dtype == np.dtype('float32'): 
-            s = np.zeros(min(A.shape),A.dtype)
-            datatype = 0
-        elif A.dtype == np.dtype('float64'): 
-            s = np.zeros(min(A.shape),A.dtype)
-            datatype = 1
-        elif A.dtype == np.dtype('complex64'): 
-            s = np.zeros(min(A.shape),dtype="float32")
-            datatype = 4
-        elif A.dtype == np.dtype('complex128'): 
-            s = np.zeros(min(A.shape),dtype="float64")
-            datatype = 5
         lib.wrap_CUDA_Xgesvdp(
             A.ctypes.data_as(ctypes.c_void_p),
             A.ctypes.shape,
             UT.ctypes.data_as(ctypes.c_void_p),
             s.ctypes.data_as(ctypes.c_void_p),
             V.ctypes.data_as(ctypes.c_void_p),
-            ctypes.c_int(datatype),
+            ctypes.c_int(data_type),
             ctypes.c_double(PD_pertubation),
         )
         return UT.transpose(),s,V
@@ -58,25 +56,13 @@ def CUDA_SVD(A, driver="Jacobi", tol=0.2e-7, max_sweeps=100, PD_pertubation=2e-8
         else: A_ = A
         U = np.zeros((A_.shape[0],min(A_.shape)),A_.dtype)
         V = np.zeros((min(A_.shape),A_.shape[1]),A_.dtype)
-        if A_.dtype == np.dtype('float32'): 
-            s = np.zeros(min(A_.shape),A_.dtype)
-            datatype = 0
-        elif A_.dtype == np.dtype('float64'): 
-            s = np.zeros(min(A_.shape),A_.dtype)
-            datatype = 1
-        elif A_.dtype == np.dtype('complex64'): 
-            s = np.zeros(min(A_.shape),dtype="float32")
-            datatype = 4
-        elif A_.dtype == np.dtype('complex128'): 
-            s = np.zeros(min(A_.shape),dtype="float64")
-            datatype = 5
         lib.wrap_CUDA_Xgesvd(
-            A_.ctypes.data_as(ctypes.c_void_p),
+            A.ctypes.data_as(ctypes.c_void_p),
             A_.ctypes.shape,
             U.ctypes.data_as(ctypes.c_void_p),
             s.ctypes.data_as(ctypes.c_void_p),
             V.ctypes.data_as(ctypes.c_void_p),
-            ctypes.c_int(datatype),
+            ctypes.c_int(data_type),
         )
         if A.shape[0] > A.shape[1]: 
             return V.transpose(),s,U.transpose()
