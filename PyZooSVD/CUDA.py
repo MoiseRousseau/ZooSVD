@@ -52,22 +52,22 @@ def CUDA_SVD(A, driver="Jacobi", tol=0.2e-7, max_sweeps=100, PD_pertubation=2e-8
         return UT.transpose(),s,V
 
     elif driver == "QR":
-        if A.shape[0] > A.shape[1]: A_ = A.transpose()
-        else: A_ = A
-        U = np.zeros((A_.shape[0],min(A_.shape)),A_.dtype)
-        V = np.zeros((min(A_.shape),A_.shape[1]),A_.dtype)
+        if A.shape[0] > A.shape[1]:
+            print("QR driver requires matrix.shape[0] < matrix.shape[1]")
+            print("Please use Polar-Decomposition driver instead")
+            print("Note: passing matrix transpose will NOT work!")
+            raise ValueError
+        U = np.zeros((A.shape[0],min(A.shape)),A.dtype)
+        V = np.zeros((min(A.shape),A.shape[1]),A.dtype)
         lib.wrap_CUDA_Xgesvd(
             A.ctypes.data_as(ctypes.c_void_p),
-            A_.ctypes.shape,
+            A.ctypes.shape,
             U.ctypes.data_as(ctypes.c_void_p),
             s.ctypes.data_as(ctypes.c_void_p),
             V.ctypes.data_as(ctypes.c_void_p),
             ctypes.c_int(data_type),
-        )
-        if A.shape[0] > A.shape[1]: 
-            return V.transpose(),s,U.transpose()
-        else:
-            return U,s,V
+        ) 
+        return U,s,V
 
     else:
         print(f"Unknown driver \"{driver}\". Available drivers are \"Jacobi\", \"QR\" and \"Polar-Decomposition\"")

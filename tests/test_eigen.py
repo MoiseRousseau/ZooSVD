@@ -17,24 +17,31 @@ class Test_EIGEN:
         #double type
         A = np.random.random(size)-0.5
         mats.append(A)
-        #complex 128
-        #A_ = A + 1j * np.random.random(size)-0.5
-        #U,s,V = np.linalg.svd(A_)
-        #mats.append([A_, U,s,V])
+        mats.append(A.astype("float32"))
+    tol = {
+        np.dtype("float32") : 2e-6,
+        np.dtype("float64") : 1e-10,
+    }
     
-    @pytest.mark.parametrize("mat", [x for x in mats])
+    @pytest.mark.real
+    @pytest.mark.parametrize("mat", mats)
     def test_EIGEN_bidiagdc(self, mat):
-        print("Eigen:", mat.size, mat.dtype)
-        U,s,V = PyZooSVD.Eigen_SVD(mat, driver="bidiagdc")
-        norm = np.linalg.norm( mat - U @ np.diag(s) @ V ) 
-        print("Error norm:", norm)
-        assert norm < 1e-8
+        print("Eigen-BiDiagDC:", mat.size, mat.dtype)
+        self.SVD(mat, "bidiagdc")
     
+    @pytest.mark.real
     @pytest.mark.parametrize("mat", [x for x in mats])
     def test_EIGEN_jacobi(self, mat):
-        print("Eigen:", mat.size, mat.dtype)
-        U,s,V = PyZooSVD.Eigen_SVD(mat, driver="jacobi")
+        print("Eigen-jacobi:", mat.size, mat.dtype)
+        self.SVD(mat, "jacobi")
+
+    def SVD(self, mat, driver):
+        U,s,V = PyZooSVD.Eigen_SVD(mat, driver=driver)
         norm = np.linalg.norm( mat - U @ np.diag(s) @ V ) 
         print("Error norm:", norm)
-        assert norm < 1e-8
+        test = norm < self.tol[mat.dtype]
+        if not test:
+            print(U,s,V)
+            print(np.linalg.svd(mat, full_matrices=False))
+        assert test
         

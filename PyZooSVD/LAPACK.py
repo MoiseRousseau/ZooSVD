@@ -83,4 +83,6 @@ def Lapack_SVD(A, driver="gesvd"):
                 s.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
                 VT.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
             )
+    else:
+        print("Unknown driver \"{driver}\". Available drivers are \"gesvd\" and \"gesdd\".")
     return U,s,VT
