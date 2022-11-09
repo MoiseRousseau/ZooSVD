@@ -77,7 +77,8 @@ class Test_CUDA:
         norm = np.linalg.norm( mat - U @ np.diag(s) @ V )
         print("Error norm:", norm)
         test = norm < self.tol[mat.dtype]
-        if not test:
+        if not test and not (mat.dtype == np.dtype("complex64") or mat.dtype == np.dtype("complex128")):
+            #different results even if the SVD is correct in complex mode
             print(U,s,V)
             print(np.linalg.svd(mat, full_matrices=False))
         assert test

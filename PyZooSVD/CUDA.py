@@ -3,7 +3,7 @@ import ctypes
 
 lib = ctypes.cdll.LoadLibrary("/".join(__file__.split('/')[:-1])+"/libZooSVD.so")
 
-def CUDA_SVD(A, driver="Jacobi", tol=0.2e-7, max_sweeps=100, PD_pertubation=2e-8):
+def CUDA_SVD(A, driver="Jacobi", tol=1e-9, max_sweeps=100, PD_pertubation=2e-8):
     """
     Perform the SVD using GPU with the CUDA library.
     
@@ -35,6 +35,7 @@ def CUDA_SVD(A, driver="Jacobi", tol=0.2e-7, max_sweeps=100, PD_pertubation=2e-8
             ctypes.c_int(max_sweeps),
             ctypes.c_int(data_type),
         )
+        if data_type > 3: UT = UT.conjugate()
         return UT.transpose(),s,V
 
     elif driver == "Polar-Decomposition":
@@ -49,6 +50,7 @@ def CUDA_SVD(A, driver="Jacobi", tol=0.2e-7, max_sweeps=100, PD_pertubation=2e-8
             ctypes.c_int(data_type),
             ctypes.c_double(PD_pertubation),
         )
+        if data_type > 3: UT = UT.conjugate()
         return UT.transpose(),s,V
 
     elif driver == "QR":
