@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 
 # set the project name and version
 project(ZooSVD 
-    LANGUAGES CXX 
+    #LANGUAGES CXX #let CMake decide based on the file extension
     VERSION 0.1
     DESCRIPTION "A collection of High Performance Computational routines performing Singular Value Decomposition of Dense matrix")
 
@@ -22,17 +22,13 @@ set(LIB_SOURCES src/Eigen_wrap.cpp src/LAPACK_wrap.cpp src/utils.cpp)
 
 #LAPACK
 find_package(LAPACK REQUIRED)
-set(LAPACKE_DIR "${CMAKE_SOURCE_DIR}/external")
+set(LAPACKE_DIR "${CMAKE_SOURCE_DIR}/cmake")
 find_package(LAPACKE REQUIRED)
 message(STATUS "LAPACKE lib: ${LAPACKE_LIBRARIES}")
 
 #EIGEN
 find_package(Eigen3 REQUIRED)
 message(STATUS "Eigen3 dir: ${EIGEN3_INCLUDE_DIR}")
-
-#ScaLAPACK
-#find_package(ScaLAPACK REQUIRED)
-#message(STATUS "ScaLAPACK lib: ${SCALAPACK_LIBRARIES}")
 
 #------------------
 # Touchy dependencies to handle separately
@@ -47,6 +43,12 @@ if(WITH_KSVD)
     install(TARGETS KSVD_main DESTINATION ${CMAKE_SOURCE_DIR}/PyZooSVD)
 endif()
 
+if(WITH_SCALAPACK)
+    set(MPI_TO_FIND 1)
+    #set(SCALAPACK_DIR "${CMAKE_SOURCE_DIR}/cmake")
+    include(cmake/FindScaLAPACK.cmake)
+    message(STATUS "ScaLAPACK lib: ${SCALAPACK_LIBRARIES}")
+endif()
 
 if(WITH_CUDA)
     message(STATUS "Configure with CUDA wrapper")
