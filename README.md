@@ -4,12 +4,16 @@ A collection of High Performance Computational routines wrapped in Python to per
 
 ## Getting started
 
-Dependencies: Eigen, CUDA (for GPU wrappers)
+Dependencies are Eigen, LAPACKE, CUDA (for GPU wrappers). 
+Can be installed with (on Ubuntu 22.04 LTS, adapt for your distribution):
+```
+apt install liblapacke-dev libeigen3-dev nvidia-cuda-toolkit
+```
 
 Compile the wrappers lib for Python:
 ```
 mkdir build && cd build
-cmake .. DCMAKE_BUILD_TYPE=Release -DWITH_CUDA=1
+cmake .. -DCMAKE_BUILD_TYPE=Release -DWITH_CUDA=1
 make
 make install
 ```
